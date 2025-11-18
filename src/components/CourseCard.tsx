@@ -1,0 +1,85 @@
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Star, Clock, Users } from "lucide-react";
+
+interface CourseCardProps {
+  image: string;
+  title: string;
+  description: string;
+  price: string;
+  originalPrice: string;
+  discount: string;
+  rating: number;
+  reviews: number;
+  duration: string;
+  students: string;
+}
+
+const CourseCard = ({
+  image,
+  title,
+  description,
+  price,
+  originalPrice,
+  discount,
+  rating,
+  reviews,
+  duration,
+  students,
+}: CourseCardProps) => {
+  return (
+    <div className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-[var(--shadow-elegant)] transition-all duration-300 hover:-translate-y-1">
+      <div className="relative overflow-hidden">
+        <img 
+          src={image} 
+          alt={title}
+          className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500"
+        />
+        <Badge className="absolute top-4 right-4 bg-destructive text-destructive-foreground">
+          {discount} OFF
+        </Badge>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-1">
+            <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+            <span className="font-semibold">{rating}</span>
+          </div>
+          <span className="text-muted-foreground">({reviews} reviews)</span>
+        </div>
+        
+        <h3 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+          {title}
+        </h3>
+        
+        <p className="text-muted-foreground line-clamp-2">
+          {description}
+        </p>
+        
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            <span>{duration}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Users className="h-4 w-4" />
+            <span>{students}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between pt-4 border-t border-border">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-primary">{price}</span>
+            <span className="text-sm text-muted-foreground line-through">{originalPrice}</span>
+          </div>
+          <Button variant="default">
+            Enroll Now
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CourseCard;
