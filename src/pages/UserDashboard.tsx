@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,20 +9,39 @@ import { ShoppingBag, Package } from "lucide-react";
 const UserDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [purchases, setPurchases] = useState([]);
 
+  // Redirect user if not logged in
   useEffect(() => {
-    if (!user) {
-      navigate("/signin");
-    }
+    if (!user) navigate("/signin");
   }, [user, navigate]);
 
-  const mockSubscriptions = [
-    { id: "1", plan: "Pro Monthly", amount: "$29/mo", status: "active", startDate: "2024-01-15", nextBilling: "2024-03-15" },
-  ];
 
-  const mockPurchases = [
-    { id: "1", name: "Web Development Mastery", price: "$99", purchaseDate: "2024-02-01", status: "completed" },
-    { id: "2", name: "Design Fundamentals", price: "$149", purchaseDate: "2024-02-05", status: "completed" },
+  // Load user purchases from backend
+  useEffect(() => {
+    if (!user) return;
+
+    fetch(`http://localhost:5000/getpurchases?email=${user.email}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setPurchases(data.purchases);
+        }
+      })
+      .catch((err) => console.error("Error loading purchases:", err));
+  }, [user]);
+
+
+  // Mock Subscriptions (you can replace later)
+  const mockSubscriptions = [
+    {
+      id: "1",
+      plan: "Pro Monthly",
+      amount: "$29/mo",
+      status: "active",
+      startDate: "2024-01-15",
+      nextBilling: "2024-03-15"
+    },
   ];
 
   return (
@@ -51,6 +70,7 @@ const UserDashboard = () => {
             <ShoppingBag className="h-6 w-6 text-primary" />
             <h3 className="text-2xl font-bold">Active Subscriptions</h3>
           </div>
+
           {mockSubscriptions.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -69,6 +89,7 @@ const UserDashboard = () => {
                       </Badge>
                     </div>
                   </CardHeader>
+
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
@@ -83,6 +104,7 @@ const UserDashboard = () => {
                         <span className="text-muted-foreground">Next Billing:</span>
                         <span>{subscription.nextBilling}</span>
                       </div>
+
                       <Button variant="outline" className="w-full mt-4">Manage Subscription</Button>
                     </div>
                   </CardContent>
@@ -98,7 +120,8 @@ const UserDashboard = () => {
             <Package className="h-6 w-6 text-primary" />
             <h3 className="text-2xl font-bold">My Purchases</h3>
           </div>
-          {mockPurchases.length === 0 ? (
+
+          {purchases.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
                 No purchases yet
@@ -106,24 +129,29 @@ const UserDashboard = () => {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mockPurchases.map((purchase) => (
-                <Card key={purchase.id} className="hover:shadow-lg transition-shadow">
+              {purchases.map((purchase) => (
+                <Card key={purchase.payment_id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg line-clamp-2">{purchase.name}</CardTitle>
+                      <CardTitle className="text-lg line-clamp-2">{purchase.product_name}</CardTitle>
                       <Badge variant="outline" className="text-green-600 border-green-600">
                         {purchase.status}
                       </Badge>
                     </div>
-                    <CardDescription>Purchased on {purchase.purchaseDate}</CardDescription>
+
+                    <CardDescription>
+                      Purchased on {new Date(purchase.purchase_date).toLocaleDateString()}
+                    </CardDescription>
                   </CardHeader>
+
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground text-sm">Price Paid:</span>
-                        <span className="text-xl font-bold text-primary">{purchase.price}</span>
+                        <span className="text-xl font-bold text-primary">
+                          {purchase.currency} {purchase.amount}
+                        </span>
                       </div>
-                      <Button className="w-full mt-4">Access Course</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -131,6 +159,7 @@ const UserDashboard = () => {
             </div>
           )}
         </div>
+
       </div>
     </div>
   );

@@ -18,9 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used inside AuthProvider");
   return context;
 };
 
@@ -28,31 +26,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    const stored = localStorage.getItem("user");
+    if (stored) setUser(JSON.parse(stored));
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Simulate login - admin@admin.com is admin, others are users
-    const mockUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      role: email === "admin@admin.com" ? "admin" : "user",
-    };
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
-  };
+  const API_BASE = "http://127.0.0.1:5000";
 
+  // SIGNUP
   const signup = async (email: string, password: string) => {
-    const mockUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
+    const res = await fetch(`${API_BASE}/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    const userData: User = {
+      id: data.user_id,
       email,
       role: "user",
     };
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
+
+    setUser(userData);
+    localStorage.setItem("user", JSON.stringify(userData));
+  };
+
+  // LOGIN
+  const login = async (email: string, password: string) => {
+    const res = await fetch(`${API_BASE}/signin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    const loggedUser: User = {
+      id: data.user_id,
+      email: data.email,
+      role: data.user_type,   // 👈 backend decides role
+    };
+
+    setUser(loggedUser);
+    localStorage.setItem("user", JSON.stringify(loggedUser));
   };
 
   const logout = () => {

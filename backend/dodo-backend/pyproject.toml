@@ -8,5 +8,8 @@ dependencies = [
     "dodopayments>=1.61.5",
     "flask>=3.1.2",
     "flask-cors>=6.0.1",
+    "psycopg2-binary>=2.9.11",
+    "python-dotenv>=1.2.1",
     "requests>=2.32.5",
+    "standardwebhooks>=1.0.0",
 ]

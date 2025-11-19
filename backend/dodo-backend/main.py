@@ -3,24 +3,23 @@ import requests
 import os
 from flask_cors import CORS
 from dodopayments import DodoPayments
+import psycopg2
+from dotenv import load_dotenv
+from db import insert_payment, get_db ,get_all_purchases
+import os
 
-
-
-
-
-app = Flask(__name__)
-CORS(app)  # allow frontend to access this server
 
 DODO_API_URL = "https://test.dodopayments.com/products"
-#test
-#DODO_API_KEY = "rcWF2oBx2WhZQgQL.TP9-F_L9BJZkS28WEE1PceOtF0HBk_oq98IMOjO5e2gTI7xx" # load from environment
-#live
-DODO_API_KEY = "Bfsb8COPTHesfa06.eg0LrQdch_wKAb6a2aWxya78-1f8qxgRmpj90OvGSR32uLt0"
+DODO_API_KEY = os.getenv("VITE_DODO_API_KEY")
 
 client = DodoPayments(
     bearer_token=DODO_API_KEY,
-    environment="live_mode"
+    environment="test_mode"
 )
+
+
+app = Flask(__name__)
+CORS(app)  #
 
 @app.route("/products", methods=["GET"])
 def get_products():
@@ -38,11 +37,20 @@ def get_products():
         return jsonify({"error": str(e)}), 500
 
 
+
+
 @app.route("/checkout_sessions", methods=["POST"])
 def create_checkout():
     try:
         data = request.get_json()   # Read JSON body
         product_id = data.get("product_id")
+        email = data.get("email")
+        if not email:
+            return jsonify({"success": False, "error": "Missing email"}), 400
+        
+
+        if get_all_purchases(email=email):
+            return jsonify({"error": "You already bought this product"}), 403
 
         if not product_id:
             return jsonify({"error": "product_id is required"}), 400
@@ -57,9 +65,7 @@ def create_checkout():
             ],
             feature_flags={
                 "allow_discount_code": True
-            }
-            
-)
+            })
 
         return jsonify({
             "session_id": checkout_session.session_id,
@@ -70,7 +76,98 @@ def create_checkout():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/signup", methods=["POST"])
+def signup():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
+
+        if not email or not password:
+            return jsonify({"error": "email and password required"}), 400
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM users WHERE email=%s", (email,))
+        exists = cur.fetchone()
+
+        if exists:
+            return jsonify({"error": "user already exists"}), 400
+
+        cur.execute("""
+            INSERT INTO users (email, password)
+            VALUES (%s, %s)
+            RETURNING id
+        """, (email, password))
+
+        user_id = cur.fetchone()[0]
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({"message": "signup successful", "user_id": user_id})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/signin", methods=["POST"])
+def signin():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, email, user_type
+            FROM users
+            WHERE email=%s AND password=%s
+        """, (email, password))
+
+        user = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if not user:
+            return jsonify({"error": "invalid email or password"}), 401
+
+        return jsonify({
+            "message": "login successful",
+            "user_id": user[0],
+            "email": user[1],
+            "user_type": user[2]
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+@app.route("/getpurchases", methods=["GET"])
+def get_all_purchases_route():
+    try:
+        email = request.args.get("email")
+
+        if not email:
+            return jsonify({"success": False, "error": "Missing email"}), 400
+
+        purchases = get_all_purchases(email)
+
+        return jsonify({"success": True, "purchases": purchases}), 200
+
+    except Exception as e:
+        print("Error fetching purchases:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
+
+
