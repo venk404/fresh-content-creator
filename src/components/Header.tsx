@@ -24,9 +24,13 @@ const Header = () => {
           </a>
           {user ? (
             <>
-              {isAdmin && (
+              {isAdmin ? (
                 <Link to="/admin">
                   <Button variant="outline" size="sm">Admin Dashboard</Button>
+                </Link>
+              ) : (
+                <Link to="/dashboard">
+                  <Button variant="outline" size="sm">My Dashboard</Button>
                 </Link>
               )}
               <span className="text-sm text-muted-foreground">{user.email}</span>
