@@ -3,19 +3,22 @@ import { Badge } from "./ui/badge";
 import { Star, Clock, Users } from "lucide-react";
 
 interface CourseCardProps {
+  product_id: string;   // <-- NEW
   image: string;
   title: string;
   description: string;
   price: string;
-  originalPrice: string;
-  discount: string;
+  originalPrice: string | null;
+  discount: string | null;
   rating: number;
   reviews: number;
   duration: string;
   students: string;
+  onEnroll: (product_id: string) => void; // <-- NEW
 }
 
 const CourseCard = ({
+  product_id,
   image,
   title,
   description,
@@ -26,6 +29,7 @@ const CourseCard = ({
   reviews,
   duration,
   students,
+  onEnroll,
 }: CourseCardProps) => {
   return (
     <div className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-[var(--shadow-elegant)] transition-all duration-300 hover:-translate-y-1">
@@ -35,9 +39,11 @@ const CourseCard = ({
           alt={title}
           className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500"
         />
-        <Badge className="absolute top-4 right-4 bg-destructive text-destructive-foreground">
-          {discount} OFF
-        </Badge>
+        {discount && (
+          <Badge className="absolute top-4 right-4 bg-destructive text-destructive-foreground">
+            {discount} OFF
+          </Badge>
+        )}
       </div>
       
       <div className="p-6 space-y-4">
@@ -49,9 +55,7 @@ const CourseCard = ({
           <span className="text-muted-foreground">({reviews} reviews)</span>
         </div>
         
-        <h3 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
-          {title}
-        </h3>
+        <h3 className="text-xl font-bold">{title}</h3>
         
         <p className="text-muted-foreground line-clamp-2">
           {description}
@@ -71,10 +75,13 @@ const CourseCard = ({
         <div className="flex items-center justify-between pt-4 border-t border-border">
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-primary">{price}</span>
-            <span className="text-sm text-muted-foreground line-through">{originalPrice}</span>
+            {originalPrice && (
+              <span className="text-sm text-muted-foreground line-through">{originalPrice}</span>
+            )}
           </div>
-          <Button variant="default">
-            Enroll Now
+
+          <Button variant="default" onClick={() => onEnroll(product_id)}>
+            Buy Now
           </Button>
         </div>
       </div>
