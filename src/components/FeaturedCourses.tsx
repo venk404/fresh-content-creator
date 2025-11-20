@@ -11,19 +11,20 @@ const FeaturedCourses = () => {
     async function load() {
       const products = await getProducts();
 
-      const mapped = products.map((p: any) => ({
-        product_id: p.product_id,
-        image: p.image || "/default-course.jpg",
-        title: p.name,
-        description: p.description || "No description provided.",
-        price: `$${(p.price / 100).toFixed(2)}`,
-        originalPrice: null,
-        discount: null,
-        rating: 4.8,
-        reviews: 120,
-        duration: "12 hours",
-        students: "2K+",
-      }));
+    const mapped = products.map((p) => ({
+      product_id: p.product_id,
+      type: p.price_detail.type,   // <-- REQUIRED
+      image: p.image || "/default-course.jpg",
+      title: p.name,
+      description: p.description,
+      price: `$${(p.price / 100).toFixed(2)}`,
+      originalPrice: null,
+      discount: null,
+      rating: 4.8,
+      reviews: 120,
+      duration: "12 hours",
+      students: "2K+",
+    }));
 
       setCourses(mapped);
     }

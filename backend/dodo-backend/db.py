@@ -22,7 +22,7 @@ def get_db():
 
 
 
-def get_all_purchases(email):
+def get_all_user_purchases(email):
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -54,7 +54,7 @@ def get_all_purchases(email):
     return rows
 
 
-def insert_payment(db_conn, payload: dict):
+def insert_payment(payload: dict):
     data = payload.get("data", {}) or {}
 
     # Customer info
@@ -161,10 +161,46 @@ def insert_payment(db_conn, payload: dict):
         # Timestamp
         "created_at": data.get("created_at"),
     }
-
+    db_conn = get_db()
     with db_conn.cursor() as cur:
         cur.execute(sql, values)
         db_conn.commit()
 
     return True
+
+def db_get_all_users():
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+    SELECT *
+    FROM users
+    ORDER BY 
+        CASE 
+            WHEN user_type = 'admin' THEN 0 
+            ELSE 1 
+        END,
+        created_at ASC;
+""")
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return rows
+
+
+
+def db_get_all_payments():
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("SELECT * FROM payments;")
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return rows
+
+
+
 

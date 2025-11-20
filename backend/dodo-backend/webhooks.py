@@ -32,16 +32,16 @@ def dodo_payments_webhook():
         event_type = data.get('type', '')
         match event_type:
             case 'payment.succeeded':
-                insert_payment(get_db(),payload=data)
+                insert_payment(payload=data)
                 print(f"Payment successful: {event_data.get('payment_id')}")
             case 'payment.failed':
-                insert_payment(get_db(),payload=data)
+                insert_payment(payload=data)
                 print(f"Payment failed: {event_data.get('payment_id')}")
             case 'payment.processing':
-                insert_payment(get_db(),payload=data)
+                insert_payment(payload=data)
                 print(f"Payment processing: {event_data.get('payment_id')}")
             case 'payment.cancelled':
-                insert_payment(get_db(),payload=data)
+                insert_payment(payload=data)
                 print(f"Payment cancelled: {event_data.get('payment_id')}")
             case 'subscription.active':
                 print(f"Subscription active: {event_data.get('subscription_id')}")

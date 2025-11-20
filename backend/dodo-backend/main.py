@@ -5,7 +5,7 @@ from flask_cors import CORS
 from dodopayments import DodoPayments
 import psycopg2
 from dotenv import load_dotenv
-from db import insert_payment, get_db ,get_all_purchases
+from db import insert_payment, get_db , db_get_all_users,get_all_user_purchases,db_get_all_payments
 import os
 
 
@@ -44,13 +44,6 @@ def create_checkout():
     try:
         data = request.get_json()   # Read JSON body
         product_id = data.get("product_id")
-        email = data.get("email")
-        if not email:
-            return jsonify({"success": False, "error": "Missing email"}), 400
-        
-
-        if get_all_purchases(email=email):
-            return jsonify({"error": "You already bought this product"}), 403
 
         if not product_id:
             return jsonify({"error": "product_id is required"}), 400
@@ -158,13 +151,48 @@ def get_all_purchases_route():
         if not email:
             return jsonify({"success": False, "error": "Missing email"}), 400
 
-        purchases = get_all_purchases(email)
+        purchases = get_all_user_purchases(email)
 
         return jsonify({"success": True, "purchases": purchases}), 200
 
     except Exception as e:
         print("Error fetching purchases:", e)
         return jsonify({"success": False, "error": str(e)}), 500
+    
+
+
+@app.route("/getallusers", methods=["GET"])
+def getallusers_route():
+    try:
+
+        users = db_get_all_users()
+        return jsonify({
+            "success": True,
+            "users": users
+        }), 200
+
+    except Exception as e:
+        print("Error fetching users:", e)
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route("/getallpayments", methods=["GET"])
+def getallpayments_route():
+    try:
+        payments = db_get_all_payments()
+        return jsonify({
+            "success": True,
+            "payments": payments
+        }), 200
+
+    except Exception as e:
+        print("Error fetching payments:", e)
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 if __name__ == "__main__":

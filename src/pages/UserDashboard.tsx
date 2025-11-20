@@ -131,18 +131,29 @@ const UserDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {purchases.map((purchase) => (
                 <Card key={purchase.payment_id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg line-clamp-2">{purchase.product_name}</CardTitle>
-                      <Badge variant="outline" className="text-green-600 border-green-600">
-                        {purchase.status}
-                      </Badge>
-                    </div>
+                 <CardHeader>
+  <div className="flex justify-between items-start">
+    <CardTitle className="text-lg line-clamp-2">
+      {purchase.product_name}
+    </CardTitle>
 
-                    <CardDescription>
-                      Purchased on {new Date(purchase.purchase_date).toLocaleDateString()}
-                    </CardDescription>
-                  </CardHeader>
+    <Badge
+      variant="outline"
+      className={
+        purchase.status?.toLowerCase() === "failed"
+          ? "bg-red-600"
+          : "text-green-600 border-green-600"
+      }
+    >
+      {purchase.status}
+    </Badge>
+  </div>
+
+  <CardDescription>
+    Purchased on {new Date(purchase.purchase_date).toLocaleDateString()}
+  </CardDescription>
+</CardHeader>
+
 
                   <CardContent>
                     <div className="space-y-3">

@@ -25,13 +25,23 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [newProduct, setNewProduct] = useState({ name: "", description: "", price: "" });
 
-  useEffect(() => {
-    if (!isAdmin) {
-      navigate("/");
-      return;
-    }
-    fetchProducts();
-  }, [isAdmin, navigate]);
+  // USERS
+  const [users, setUsers] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+
+
+  const [payments, setPayments] = useState<any[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+
+useEffect(() => {
+  if (!isAdmin) {
+    navigate("/");
+    return;
+  }
+  fetchProducts();
+  fetchUsers();
+  getallpayments(); // ✅ Add this
+}, [isAdmin, navigate]);
 
   const fetchProducts = async () => {
     try {
@@ -49,6 +59,46 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/getallusers");
+      const data = await res.json();
+
+      if (data.success) {
+        setUsers(data.users);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+
+const getallpayments = async () => {
+  try {
+    const res = await fetch("http://localhost:5000/getallpayments");
+    const data = await res.json();
+
+    if (data.success) {
+      setPayments(data.payments || data.items || []);
+    }
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Failed to fetch payments",
+      variant: "destructive",
+    });
+  } finally {
+    setPaymentsLoading(false);
+  }
+};
+
+
   const handleAddProduct = async () => {
     toast({
       title: "Product Added",
@@ -58,18 +108,6 @@ const AdminDashboard = () => {
   };
 
   const [activeSection, setActiveSection] = useState("products");
-
-  const mockUsers = [
-    { id: "1", name: "John Doe", email: "user1@example.com", role: "user", signedUp: "2024-01-15", status: "active" },
-    { id: "2", name: "Jane Smith", email: "user2@example.com", role: "user", signedUp: "2024-01-20", status: "active" },
-    { id: "3", name: "Admin User", email: "admin@admin.com", role: "admin", signedUp: "2024-01-01", status: "active" },
-  ];
-
-  const mockPayments = [
-    { id: "1", user: "user1@example.com", product: "Web Development Mastery", amount: "$99", date: "2024-02-01", status: "completed" },
-    { id: "2", user: "user2@example.com", product: "Design Fundamentals", amount: "$149", date: "2024-02-05", status: "completed" },
-    { id: "3", user: "user1@example.com", product: "Business Strategy", amount: "$199", date: "2024-02-10", status: "completed" },
-  ];
 
   const mockSubscriptions = [
     { id: "1", user: "user1@example.com", plan: "Pro Monthly", amount: "$29/mo", status: "active", startDate: "2024-01-15", nextBilling: "2024-03-15" },
@@ -96,7 +134,6 @@ const AdminDashboard = () => {
       </header>
 
       <div className="flex">
-        {/* Sidebar Navigation */}
         <aside className="w-64 border-r border-border bg-card min-h-[calc(100vh-73px)] p-4">
           <nav className="space-y-2">
             {navItems.map((item) => {
@@ -105,11 +142,10 @@ const AdminDashboard = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    activeSection === item.id
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === item.id
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   <Icon className="h-5 w-5" />
                   <span className="font-medium">{item.label}</span>
@@ -119,9 +155,7 @@ const AdminDashboard = () => {
           </nav>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 p-8">
-          {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader className="pb-3">
@@ -136,7 +170,7 @@ const AdminDashboard = () => {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{mockUsers.length}</p>
+                <p className="text-3xl font-bold">{users.length}</p>
               </CardContent>
             </Card>
             <Card>
@@ -144,7 +178,7 @@ const AdminDashboard = () => {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Payments</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{mockPayments.length}</p>
+                <p className="text-3xl font-bold">{payments.length}</p>
               </CardContent>
             </Card>
             <Card>
@@ -157,7 +191,7 @@ const AdminDashboard = () => {
             </Card>
           </div>
 
-          {/* Products Section */}
+          {/* PRODUCTS */}
           {activeSection === "products" && (
             <div>
               <div className="flex justify-between items-center mb-6">
@@ -204,6 +238,7 @@ const AdminDashboard = () => {
                   </DialogContent>
                 </Dialog>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {loading ? (
                   <div className="col-span-full text-center py-8">Loading...</div>
@@ -230,73 +265,133 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Users Section */}
+          {/* USERS */}
           {activeSection === "users" && (
             <div>
               <h2 className="text-2xl font-bold mb-6">Users</h2>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {mockUsers.map((user) => (
-                  <Card key={user.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{user.name}</CardTitle>
-                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                          {user.role}
-                        </Badge>
-                      </div>
-                      <CardDescription>{user.email}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Status:</span>
-                          <Badge variant="outline" className="text-green-600 border-green-600">{user.status}</Badge>
+                {usersLoading ? (
+                  <div className="col-span-full text-center py-8">Loading...</div>
+                ) : users.length === 0 ? (
+                  <div className="col-span-full text-center py-8 text-muted-foreground">
+                    No users found
+                  </div>
+                ) : (
+                  users.map((usr) => (
+                    <Card key={usr.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">
+                            {usr.email.split("@")[0]}
+                          </CardTitle>
+
+                          <Badge variant={usr.user_type === "admin" ? "default" : "secondary"}>
+                            {usr.user_type}
+                          </Badge>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Joined:</span>
-                          <span>{user.signedUp}</span>
+                        <CardDescription>{usr.email}</CardDescription>
+                      </CardHeader>
+
+                      <CardContent>
+                        <div className="space-y-2 text-sm">
+
+                          {/* --- Status row (ADDED BACK EXACTLY LIKE BEFORE) --- */}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Status:</span>
+                            <Badge variant="outline" className="text-green-600 border-green-600">
+                              active
+                            </Badge>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Joined:</span>
+                            <span>{new Date(usr.created_at).toLocaleDateString()}</span>
+                          </div>
+
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+
               </div>
             </div>
           )}
 
-          {/* Payments Section */}
+          {/* PAYMENTS */}
           {activeSection === "payments" && (
             <div>
               <h2 className="text-2xl font-bold mb-6">Payments</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {mockPayments.map((payment) => (
-                  <Card key={payment.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg line-clamp-1">{payment.product}</CardTitle>
-                        <Badge variant="outline" className="text-green-600 border-green-600">{payment.status}</Badge>
-                      </div>
-                      <CardDescription>{payment.user}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground text-sm">Amount:</span>
-                          <span className="text-2xl font-bold">{payment.amount}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Date:</span>
-                          <span>{payment.date}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+
+              {paymentsLoading ? (
+                <div className="text-center py-8">Loading...</div>
+              ) : payments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No payments found</div>
+              ) : (
+                <div className="overflow-auto rounded-lg border border-border">
+                  <table className="w-full border-collapse text-sm">
+                    <thead className="bg-muted text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Payment ID</th>
+                        <th className="px-4 py-3 text-left">Customer</th>
+                        <th className="px-4 py-3 text-left">Email</th>
+                        <th className="px-4 py-3 text-left">Product</th>
+                        <th className="px-4 py-3 text-left">Amount</th>
+                        <th className="px-4 py-3 text-left">Method</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-left">Date</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {payments.map((p: any) => (
+                        <tr key={p.id} className="border-t hover:bg-muted/30">
+                          <td className="px-4 py-3 font-medium">{p.payment_id || p.id}</td>
+                          <td className="px-4 py-3">{p.customer_name || "N/A"}</td>
+                          <td className="px-4 py-3">{p.customer_email || "N/A"}</td>
+                          <td className="px-4 py-3">{p.product_ref || p.product_id || "N/A"}</td>
+
+                          <td className="px-4 py-3 font-semibold">
+                            {p.currency} {p.amount}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <Badge variant="outline">{p.payment_method || p.payment_method_type || "N/A"}</Badge>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant="outline"
+                              className={
+                                p.status === "completed"
+                                  ? "text-green-600 border-green-600"
+                                  : p.status === "failed"
+                                    ? "text-red-600 border-red-600"
+                                    : "text-yellow-600 border-yellow-600"
+                              }
+                            >
+                              {p.status}
+                            </Badge>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {new Date(p.created_at).toLocaleDateString()} <br />
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(p.created_at).toLocaleTimeString()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Subscriptions Section */}
+
+          {/* SUBSCRIPTIONS */}
           {activeSection === "subscriptions" && (
             <div>
               <h2 className="text-2xl font-bold mb-6">Subscriptions</h2>
