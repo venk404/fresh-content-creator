@@ -345,17 +345,22 @@ def get_subscription(email):
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-    cursor.execute("""
-        SELECT *
-        FROM subscriptions
-        WHERE customer_email = %s
-        ORDER BY created_at DESC
-        LIMIT 1;
-    """, (email,))
+    try:
+        cursor.execute("""
+            SELECT *
+            FROM subscriptions
+            WHERE customer_email = %s
+            LIMIT 1;
+        """, (email,))
+        
+        row = cursor.fetchone()
+        return row
 
-    row = cursor.fetchone()
+    except Exception as e:
+        print("DB Error:", e)
+        return None
 
-    cursor.close()
-    conn.close()
-    return row
+    finally:
+        cursor.close()
+        conn.close()
 

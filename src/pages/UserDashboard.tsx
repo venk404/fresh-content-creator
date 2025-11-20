@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, Package } from "lucide-react";
 import { SubscriptionManagement } from "@/components/billingsdk/subscription-management";
-import { type CurrentPlan, plans } from "@/lib/billingsdk-config";
+import { type CurrentPlan } from "@/lib/billingsdk-config";
 
 const UserDashboard = () => {
   const { user, logout } = useAuth();
@@ -51,10 +51,12 @@ const UserDashboard = () => {
 
           setCurrentPlan({
             plan: plan,
-            type: sub.billing_cycle || "monthly",
-            price: sub.amount ? `${sub.currency} ${sub.amount}` : plan.monthlyPrice,
-            nextBillingDate: sub.next_billing_date || "N/A",
-            paymentMethod: sub.payment_method || "Credit Card",
+            type: sub.payment_frequency_interval?.toLowerCase() || "monthly",
+            price: `${sub.currency} ${sub.recurring_pre_tax_amount}`,
+            nextBillingDate: sub.next_billing_date
+              ? new Date(sub.next_billing_date).toLocaleDateString()
+              : "N/A",
+            paymentMethod: sub.payment_method_id || "Credit Card",
             status: sub.status || "active",
           });
         }
@@ -69,7 +71,6 @@ const UserDashboard = () => {
   }, [user]);
 
   const handlePlanUpdate = async (planId: string) => {
-    console.log("Update plan to:", planId);
     try {
       const res = await fetch("http://localhost:5000/updatesubscription", {
         method: "POST",
