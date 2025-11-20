@@ -5,7 +5,7 @@ from flask_cors import CORS
 from dodopayments import DodoPayments
 import psycopg2
 from dotenv import load_dotenv
-from db import insert_payment, get_db , db_get_all_users,get_all_user_purchases,db_get_all_payments,get_subscription
+from db import insert_payment, get_db , db_get_all_users,get_all_user_purchases,db_get_all_payments,insert_Subscriptions,get_subscription
 import os
 
 
@@ -195,24 +195,62 @@ def getallpayments_route():
         }), 500
 
 
+# @app.route("/getsubscription", methods=["GET"])
+# def getsubscription():
+#     try:
+#         subscription = client.subscriptions.list()
+
+#         # Convert each SubscriptionListResponse object into a dict
+#         subscription_list = [item.model_dump() for item in subscription.items]
+
+#         print("DEBUG: total subscriptions:", len(subscription_list))
+
+#         for idx, sub in enumerate(subscription_list):
+#             print(f"\n---- Inserting subscription #{idx} ----")
+#             print("DEBUG subscription_id:", sub.get("subscription_id"))
+
+#             insert_Subscriptions(sub)   # FIXED: insert one at a time
+
+#         return jsonify({
+#             "success": True,
+#             "subscriptions": subscription_list
+#         }), 200
+
+#     except Exception as e:
+#         print("ERROR LINE TRACE:")
+#         import traceback
+#         traceback.print_exc()     # 🔥 EXACT LINE OF ERROR
+
+#         print("Error fetching Subscription:", e)
+#         return jsonify({"success": False, "error": str(e)}), 500
+
+
+    
+
+
 @app.route("/getsubscription", methods=["GET"])
 def getsubscription():
     try:
-        subscription = client.subscriptions.list()
 
-        # Convert each SubscriptionListResponse object into a dict
-        subscription_list = [item.model_dump() for item in subscription.items]
+        email = request.args.get("email")
+
+        if not email:
+            return jsonify({"success": False, "error": "Missing email"}), 400
+        
+        subscription = get_subscription(email)
 
         return jsonify({
             "success": True,
-            "subscriptions": subscription_list
+            "subscriptions": subscription
         }), 200
 
     except Exception as e:
+        print("ERROR LINE TRACE:")
+        import traceback
+        traceback.print_exc()     # 🔥 EXACT LINE OF ERROR
+
         print("Error fetching Subscription:", e)
         return jsonify({"success": False, "error": str(e)}), 500
-
-    
 
 
 

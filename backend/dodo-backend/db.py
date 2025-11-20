@@ -8,6 +8,7 @@ from decimal import Decimal
 from dotenv import load_dotenv
 from psycopg2.extras import Json
 from psycopg2.extras import RealDictCursor
+import json
 
 load_dotenv()
 
@@ -204,16 +205,157 @@ def db_get_all_payments():
 
 
 
-def get_subscription():
+def insert_Subscriptions(data):
+    try:
+        # Convert dict fields to JSON strings
+        metadata = json.dumps(data.get("metadata", {}))
+        billing = json.dumps(data.get("billing", {}))
+        customer = json.dumps(data.get("customer", {}))
+
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        query = """
+            INSERT INTO subscriptions(
+                subscription_id,
+                product_id,
+                status,
+                start_date,
+                end_date,
+                billing_city,
+                billing_country,
+                billing_state,
+                billing_street,
+                billing_zipcode,
+                cancel_at_next_billing_date,
+                cancelled_at,
+                currency,
+                customer_id,
+                customer_email,
+                customer_name,
+                customer_phone_number,
+                customer_metadata,
+                discount_cycles_remaining,
+                discount_id,
+                metadata,
+                next_billing_date,
+                previous_billing_date,
+                on_demand,
+                payment_frequency_count,
+                payment_frequency_interval,
+                payment_method_id,
+                quantity,
+                recurring_pre_tax_amount,
+                subscription_period_count,
+                subscription_period_interval,
+                tax_id,
+                tax_inclusive,
+                trial_period_days
+            )
+            VALUES (
+                %(subscription_id)s,
+                %(product_id)s,
+                %(status)s,
+                %(created_at)s,
+                %(next_billing_date)s,
+                %(billing_city)s,
+                %(billing_country)s,
+                %(billing_state)s,
+                %(billing_street)s,
+                %(billing_zipcode)s,
+                %(cancel_at_next_billing_date)s,
+                %(cancelled_at)s,
+                %(currency)s,
+                %(customer_id)s,
+                %(customer_email)s,
+                %(customer_name)s,
+                %(customer_phone_number)s,
+                %(customer_metadata)s,
+                %(discount_cycles_remaining)s,
+                %(discount_id)s,
+                %(metadata)s,
+                %(next_billing_date)s,
+                %(previous_billing_date)s,
+                %(on_demand)s,
+                %(payment_frequency_count)s,
+                %(payment_frequency_interval)s,
+                %(payment_method_id)s,
+                %(quantity)s,
+                %(recurring_pre_tax_amount)s,
+                %(subscription_period_count)s,
+                %(subscription_period_interval)s,
+                %(tax_id)s,
+                %(tax_inclusive)s,
+                %(trial_period_days)s
+            );
+        """
+
+        # Prepare params
+        params = {
+            "subscription_id": data.get("subscription_id"),
+            "product_id": data.get("product_id"),
+            "status": data.get("status"),
+            "created_at": data.get("created_at"),
+            "next_billing_date": data.get("next_billing_date"),
+            "billing_city": data.get("billing", {}).get("city"),
+            "billing_country": data.get("billing", {}).get("country"),
+            "billing_state": data.get("billing", {}).get("state"),
+            "billing_street": data.get("billing", {}).get("street"),
+            "billing_zipcode": data.get("billing", {}).get("zipcode"),
+            "cancel_at_next_billing_date": data.get("cancel_at_next_billing_date"),
+            "cancelled_at": data.get("cancelled_at"),
+            "currency": data.get("currency"),
+            "customer_id": data.get("customer", {}).get("customer_id"),
+            "customer_email": data.get("customer", {}).get("email"),
+            "customer_name": data.get("customer", {}).get("name"),
+            "customer_phone_number": data.get("customer", {}).get("phone_number"),
+            "customer_metadata": json.dumps(data.get("customer", {}).get("metadata", {})),
+            "discount_cycles_remaining": data.get("discount_cycles_remaining"),
+            "discount_id": data.get("discount_id"),
+            "metadata": metadata,
+            "previous_billing_date": data.get("previous_billing_date"),
+            "on_demand": data.get("on_demand"),
+            "payment_frequency_count": data.get("payment_frequency_count"),
+            "payment_frequency_interval": data.get("payment_frequency_interval"),
+            "payment_method_id": data.get("payment_method_id"),
+            "quantity": data.get("quantity"),
+            "recurring_pre_tax_amount": data.get("recurring_pre_tax_amount"),
+            "subscription_period_count": data.get("subscription_period_count"),
+            "subscription_period_interval": data.get("subscription_period_interval"),
+            "tax_id": data.get("tax_id"),
+            "tax_inclusive": data.get("tax_inclusive"),
+            "trial_period_days": data.get("trial_period_days")
+        }
+
+        cursor.execute(query, params)
+        conn.commit()
+        cursor.close()
+
+        return True
+
+    except Exception as e:
+        print("Insert error:", e)
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+
+def get_subscription(email):
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-    cursor.execute("SELECT * FROM subscription;")
-    rows = cursor.fetchall()
+    cursor.execute("""
+        SELECT *
+        FROM subscriptions
+        WHERE customer_email = %s
+        ORDER BY created_at DESC
+        LIMIT 1;
+    """, (email,))
+
+    row = cursor.fetchone()
 
     cursor.close()
     conn.close()
-    return rows
-
-
+    return row
 
