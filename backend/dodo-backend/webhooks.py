@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 import json
 from dotenv import load_dotenv
 import os
-from db import insert_payment, get_db
+from db import insert_payment, get_db ,insert_subscription_payment
 
 
 app = Flask(__name__)
@@ -17,7 +17,7 @@ wh = Webhook(webhook_secret_key)
 @app.route('/webhook/dodo-payments', methods=['POST'])
 def dodo_payments_webhook():
     try:
-
+        payload_type = ''
         payload = request.get_data(as_text=True)
         headers = request.headers
         if not wh.verify(payload, headers):
@@ -32,7 +32,12 @@ def dodo_payments_webhook():
         event_type = data.get('type', '')
         match event_type:
             case 'payment.succeeded':
-                insert_payment(payload=data)
+                if payload_type == 'subscription':
+                    insert_subscription_payment(payload=data)
+                elif payload_type == 'payment':
+                    insert_payment(payload=data)
+                else :
+                    print(f"Unknown payload type for payment.succeeded: {payload_type}")
                 print(f"Payment successful: {event_data.get('payment_id')}")
             case 'payment.failed':
                 insert_payment(payload=data)

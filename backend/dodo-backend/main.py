@@ -5,7 +5,7 @@ from flask_cors import CORS
 from dodopayments import DodoPayments
 import psycopg2
 from dotenv import load_dotenv
-from db import insert_payment, get_db , db_get_all_users,get_all_user_purchases,db_get_all_payments
+from db import insert_payment, get_db , db_get_all_users,get_all_user_purchases,db_get_all_payments,get_subscription
 import os
 
 
@@ -193,6 +193,28 @@ def getallpayments_route():
             "success": False,
             "error": str(e)
         }), 500
+
+
+@app.route("/getsubscription", methods=["GET"])
+def getsubscription():
+    try:
+        subscription = client.subscriptions.list()
+
+        # Convert each SubscriptionListResponse object into a dict
+        subscription_list = [item.model_dump() for item in subscription.items]
+
+        return jsonify({
+            "success": True,
+            "subscriptions": subscription_list
+        }), 200
+
+    except Exception as e:
+        print("Error fetching Subscription:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    
+
+
 
 
 if __name__ == "__main__":

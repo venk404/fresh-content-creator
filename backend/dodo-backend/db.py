@@ -204,3 +204,16 @@ def db_get_all_payments():
 
 
 
+def get_subscription():
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("SELECT * FROM subscription;")
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return rows
+
+
+
