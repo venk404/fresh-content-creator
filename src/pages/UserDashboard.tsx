@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, Package } from "lucide-react";
 import { SubscriptionManagement } from "@/components/billingsdk/subscription-management";
-import { type CurrentPlan } from "@/lib/billingsdk-config";
+import { type CurrentPlan, plans } from "@/lib/billingsdk-config";
 
 const UserDashboard = () => {
   const { user, logout } = useAuth();
@@ -46,17 +46,24 @@ const UserDashboard = () => {
         ) {
           const sub = subscriptionData.subscriptions[0];
 
-          const plan = plans.find((p) => p.id === sub.plan_id) || plans[0];
-          console.log("Current Plan:", plan, sub);
+          // Map payment_frequency_interval to plan type
+          const intervalMap: { [key: string]: 'daily' | 'weekly' | 'monthly' } = {
+            'Day': 'daily',
+            'Week': 'weekly',
+            'Month': 'monthly'
+          };
+          
+          const planType = intervalMap[sub.payment_frequency_interval] || 'monthly';
+          const plan = plans.find((p) => p.id === planType) || plans[2];
 
           setCurrentPlan({
             plan: plan,
-            type: sub.payment_frequency_interval?.toLowerCase() || "monthly",
+            type: planType,
             price: `${sub.currency} ${sub.recurring_pre_tax_amount}`,
             nextBillingDate: sub.next_billing_date
               ? new Date(sub.next_billing_date).toLocaleDateString()
               : "N/A",
-            paymentMethod: sub.payment_method_id || "Credit Card",
+            paymentMethod: sub.payment_method_id || "Card",
             status: sub.status || "active",
           });
         }
