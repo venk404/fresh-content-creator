@@ -85,8 +85,8 @@ export function SubscriptionManagement({
                   variant="outline" 
                   className={cn(
                     "capitalize",
-                    currentPlan.status === 'active' && "bg-green-500/10 text-green-600 border-green-600/20",
-                    currentPlan.status === 'cancelled' && "bg-red-500/10 text-red-600 border-red-600/20"
+                    currentPlan.status === 'active' && "bg-primary/10 text-primary border-primary/20",
+                    currentPlan.status === 'cancelled' && "bg-destructive/10 text-destructive border-destructive/20"
                   )}
                 >
                   {currentPlan.status}

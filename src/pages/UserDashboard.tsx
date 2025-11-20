@@ -194,8 +194,8 @@ const UserDashboard = () => {
       variant="outline"
       className={
         purchase.status?.toLowerCase() === "failed"
-          ? "bg-red-600"
-          : "text-green-600 border-green-600"
+          ? "bg-destructive/10 text-destructive border-destructive/20"
+          : "bg-primary/10 text-primary border-primary/20"
       }
     >
       {purchase.status}
