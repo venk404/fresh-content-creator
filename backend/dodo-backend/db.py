@@ -203,7 +203,25 @@ def db_get_all_payments():
     return rows
 
 
+def check_if_subscription_exists(subscription_id):
+    conn = get_db()
+    cursor = conn.cursor()
 
+    cursor.execute("""
+        SELECT 1
+        FROM subscriptions
+        WHERE subscription_id = %s and status = 'active'
+        LIMIT 1;
+    """, (subscription_id,))
+
+    exists = cursor.fetchone() is not None
+
+    cursor.close()
+    conn.close()
+    if exists:
+        return True
+    else:
+        return False
 
 def insert_Subscriptions(data):
     try:
@@ -327,7 +345,10 @@ def insert_Subscriptions(data):
             "trial_period_days": data.get("trial_period_days")
         }
 
-        cursor.execute(query, params)
+        if check_if_subscription_exists(data.get("subscription_id")):
+            print(f"Subscription {data.get('subscription_id')} already exists. Skipping insert.")
+        else:
+            cursor.execute(query, params)
         conn.commit()
         cursor.close()
 
@@ -349,8 +370,8 @@ def get_subscription(email):
         cursor.execute("""
             SELECT *
             FROM subscriptions
-            WHERE customer_email = %s
-            LIMIT 1;
+            WHERE customer_email = %s and status = 'active'
+            LIMIT 1 ;
         """, (email,))
         
         row = cursor.fetchone()

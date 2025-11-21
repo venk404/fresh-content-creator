@@ -57,7 +57,7 @@ def create_checkout():
             ],
             feature_flags={
                 "allow_discount_code": True
-            })
+            },return_url="http://localhost:8081/dashboard",)
 
         return jsonify({
             "session_id": checkout_session.session_id,
@@ -239,7 +239,6 @@ def getsubscription():
             return jsonify({"success": False, "error": "Missing email"}), 400
         
         subscription = get_subscription(email)
-        print("DEBUG: fetched subscription from DB:", subscription)
         
         # Wrap single subscription in array for frontend compatibility
         subscriptions = [subscription] if subscription else []
@@ -267,7 +266,6 @@ def get_payment_method():
         )
 
         for item in response.items:
-            time.sleep(1)
             if item.payment_method_id==payment_method_id:
                 print(item.payment_method)
                 return jsonify({"payment_methods": item.payment_method}), 200

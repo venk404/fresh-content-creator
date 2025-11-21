@@ -81,8 +81,8 @@ export function SubscriptionManagement({
               <h3 className="text-xl font-semibold">{currentPlan.plan.title}</h3>
               <div className="flex items-center gap-2">
                 <span className="text-3xl font-bold text-primary">{currentPlan.price}</span>
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className={cn(
                     "capitalize",
                     currentPlan.status === 'active' && "bg-primary/10 text-primary border-primary/20",
@@ -101,7 +101,7 @@ export function SubscriptionManagement({
         {/* Billing Information */}
         <div className="space-y-4 pt-4 border-t border-border">
           <h4 className="font-semibold">Billing Information</h4>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <Calendar className="h-5 w-5 text-primary" />
@@ -121,9 +121,18 @@ export function SubscriptionManagement({
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* ACTION BUTTONS */}
         <div className="flex gap-3 pt-4">
-          <Dialog open={isUpdateOpen} onOpenChange={setIsUpdateOpen}>
+          {/* -------- UPDATE PLAN DIALOG -------- */}
+          <Dialog
+            open={isUpdateOpen}
+            onOpenChange={(open) => {
+              setIsUpdateOpen(open);
+              if (!open) {
+                setSelectedPlanId(currentPlan.plan.id);
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button variant="default" className="flex-1">
                 {updatePlan.triggerText}
@@ -131,7 +140,7 @@ export function SubscriptionManagement({
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Update Your Plan</DialogTitle>
+                <DialogTitle>Upgrade Your Plan</DialogTitle>
                 <DialogDescription>
                   Choose a new plan that fits your needs
                 </DialogDescription>
@@ -172,25 +181,33 @@ export function SubscriptionManagement({
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsUpdateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
+             <Button
+                variant="outline"
+                onClick={() => {
+                  setIsUpdateOpen(false);
+                  setSelectedPlanId(currentPlan.plan.id);
+                }}
+              >
+                Cancel
+              </Button>
+                <Button
                   onClick={handleUpdatePlan}
                   disabled={selectedPlanId === currentPlan.plan.id}
                 >
-                  Confirm Update
+                  Confirm Upgrade
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
 
+          {/* -------- CANCEL DIALOG -------- */}
           <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="flex-1">
                 Cancel Subscription
               </Button>
             </DialogTrigger>
+
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
@@ -216,7 +233,10 @@ export function SubscriptionManagement({
                   <p className="text-sm font-medium">You will lose access to:</p>
                   <ul className="space-y-1">
                     {cancelSubscription.plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <li
+                        key={idx}
+                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                      >
                         <Check className="h-4 w-4 text-primary" />
                         {feature.name}
                       </li>
@@ -235,6 +255,7 @@ export function SubscriptionManagement({
                 >
                   Keep Subscription
                 </Button>
+
                 <Button
                   variant="destructive"
                   onClick={handleCancelSubscription}
@@ -247,7 +268,7 @@ export function SubscriptionManagement({
           </Dialog>
         </div>
 
-        {/* Current Plan Features */}
+        {/* FEATURES */}
         <div className="space-y-3 pt-4 border-t border-border">
           <h4 className="font-semibold">Current Plan Features</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
