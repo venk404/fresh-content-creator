@@ -7,6 +7,7 @@ import psycopg2
 from dotenv import load_dotenv
 from db import insert_payment, get_db , db_get_all_users,get_all_user_purchases,db_get_all_payments,insert_Subscriptions,get_subscription
 import os
+import time
 
 
 DODO_API_URL = "https://test.dodopayments.com/products"
@@ -193,6 +194,9 @@ def getallpayments_route():
         }), 500
 
 
+
+
+
 # @app.route("/getsubscription", methods=["GET"])
 # def getsubscription():
 #     try:
@@ -253,9 +257,27 @@ def getsubscription():
         print("Error fetching Subscription:", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route("/get_payment_method", methods=["GET"])
+def get_payment_method():
+    try:
+        payment_method_id = request.args.get("payment_method_id")
+        customer_id = request.args.get("customer_id")
+        response = client.customers.retrieve_payment_methods(
+            customer_id=customer_id,
+        )
+
+        for item in response.items:
+            time.sleep(1)
+            if item.payment_method_id==payment_method_id:
+                print(item.payment_method)
+                return jsonify({"payment_methods": item.payment_method}), 200
+        return jsonify({"error": "Payment method not found"}), 404
+
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
-
 

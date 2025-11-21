@@ -25,3 +25,4 @@ dist-ssr
 .env
 .vscode
 .venv
+backend/dodo-backend/__pycache__/db.cpython-314.pyc

@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, Package } from "lucide-react";
 import { SubscriptionManagement } from "@/components/billingsdk/subscription-management";
-import { type CurrentPlan, plans } from "@/lib/billingsdk-config";
+import { type CurrentPlan, type Plan, fetchPlans, formatPrice } from "@/lib/billingsdk-config";
 
 const UserDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Redirect if not logged in
@@ -20,62 +21,105 @@ const UserDashboard = () => {
     if (!user) navigate("/signin");
   }, [user, navigate]);
 
-  // Load user purchases + subscription
-  useEffect(() => {
-    if (!user) return;
+  // Load plans and user data
+useEffect(() => {
+  if (!user) return;
 
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch purchases
-        const purchasesRes = await fetch(`http://localhost:5000/getpurchases?email=${user.email}`);
-        const purchasesData = await purchasesRes.json();
-        if (purchasesData.success) {
-          setPurchases(purchasesData.purchases);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch plans first
+      const fetchedPlans = await fetchPlans();
+      setPlans(fetchedPlans);
+
+      // Fetch purchases
+      const purchasesRes = await fetch(`http://localhost:5000/getpurchases?email=${user.email}`);
+      const purchasesData = await purchasesRes.json();
+      if (purchasesData.success) setPurchases(purchasesData.purchases);
+
+      // Fetch subscriptions
+      const subscriptionRes = await fetch(
+        `http://localhost:5000/getsubscription?email=${user.email}`
+      );
+      const subscriptionData = await subscriptionRes.json();
+
+      if (
+        subscriptionData.success &&
+        subscriptionData.subscriptions &&
+        subscriptionData.subscriptions.length > 0
+      ) {
+        const sub = subscriptionData.subscriptions[0];
+
+        // Map payment_frequency_interval to plan type
+        const intervalMap = {
+          Day: "daily",
+          Week: "weekly",
+          Month: "monthly",
+        } as const;
+        const planType = intervalMap[sub.payment_frequency_interval] || "monthly";
+
+        // Find matching plan
+        const plan = fetchedPlans.find((p) => p.id === planType);
+        if (!plan) {
+          setCurrentPlan(null);
+          return;
         }
 
-        // Fetch subscriptions
-        const subscriptionRes = await fetch(`http://localhost:5000/getsubscription?email=${user.email}`);
-        const subscriptionData = await subscriptionRes.json();
-        console.log(subscriptionData);
+        // Convert cents/paisa to formatted currency
+        const formattedPrice = formatPrice(
+          parseFloat(sub.recurring_pre_tax_amount),
+          sub.currency
+        );
 
-        if (
-          subscriptionData.success &&
-          subscriptionData.subscriptions &&
-          subscriptionData.subscriptions.length > 0
-        ) {
-          const sub = subscriptionData.subscriptions[0];
+        // --- FETCH PAYMENT METHOD TYPE ---
+        let paymentMethodLabel = "Unknown";
+        if (sub.payment_method_id) {
+          const methodRes = await fetch(
+            `http://localhost:5000/get_payment_method?customer_id=${sub.customer_id}&payment_method_id=${sub.payment_method_id}`
+          );
 
-          // Map payment_frequency_interval to plan type
-          const intervalMap: { [key: string]: 'daily' | 'weekly' | 'monthly' } = {
-            'Day': 'daily',
-            'Week': 'weekly',
-            'Month': 'monthly'
-          };
-          
-          const planType = intervalMap[sub.payment_frequency_interval] || 'monthly';
-          const plan = plans.find((p) => p.id === planType) || plans[2];
-
-          setCurrentPlan({
-            plan: plan,
-            type: planType,
-            price: `${sub.currency} ${sub.recurring_pre_tax_amount}`,
-            nextBillingDate: sub.next_billing_date
-              ? new Date(sub.next_billing_date).toLocaleDateString()
-              : "N/A",
-            paymentMethod: sub.payment_method_id || "Card",
-            status: sub.status || "active",
-          });
+          const methodData = await methodRes.json();
+          if (methodData.payment_methods) {
+            paymentMethodLabel =
+              methodData.payment_methods.charAt(0).toUpperCase() +
+              methodData.payment_methods.slice(1); // google_pay, apple_pay, upi_collect, etc.
+          }else{
+            paymentMethodLabel = "Unknown";
+          }
         }
-      } catch (err) {
-        console.error("Error loading data:", err);
-      } finally {
-        setLoading(false);
+
+        // --- SET CURRENT PLAN ---
+        setCurrentPlan({
+          plan: plan,
+          type: planType,
+          price: formattedPrice,
+          nextBillingDate: sub.next_billing_date
+            ? new Date(sub.next_billing_date).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : "N/A",
+          paymentMethod: paymentMethodLabel,
+          status:
+            sub.status === "active"
+              ? "active"
+              : sub.status === "cancelled"
+              ? "cancelled"
+              : "inactive",
+        });
+      } else {
+        setCurrentPlan(null);
       }
-    };
+    } catch (err) {
+      console.error("Error loading data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
-  }, [user]);
+  fetchData();
+}, [user]);
 
   const handlePlanUpdate = async (planId: string) => {
     try {
@@ -85,9 +129,15 @@ const UserDashboard = () => {
         body: JSON.stringify({ email: user?.email, plan_id: planId }),
       });
       const data = await res.json();
-      if (data.success) window.location.reload();
+      if (data.success) {
+        alert("Subscription updated successfully!");
+        window.location.reload();
+      } else {
+        alert("Failed to update subscription: " + (data.error || "Unknown error"));
+      }
     } catch (err) {
       console.error("Error updating subscription:", err);
+      alert("Error updating subscription");
     }
   };
 
@@ -99,13 +149,21 @@ const UserDashboard = () => {
         body: JSON.stringify({ email: user?.email }),
       });
       const data = await res.json();
-      if (data.success) window.location.reload();
+      if (data.success) {
+        alert("Subscription cancelled successfully!");
+        window.location.reload();
+      } else {
+        alert("Failed to cancel subscription: " + (data.error || "Unknown error"));
+      }
     } catch (err) {
       console.error("Error cancelling subscription:", err);
+      alert("Error cancelling subscription");
     }
   };
 
-  const handleKeepSubscription = () => {};
+  const handleKeepSubscription = () => {
+    console.log("User chose to keep subscription");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -160,10 +218,10 @@ const UserDashboard = () => {
                   currentPlan: currentPlan.plan,
                   plans: plans,
                   onPlanChange: handlePlanUpdate,
-                  triggerText: "Update Plan",
+                  triggerText: "Upgrade",
                 }}
                 cancelSubscription={{
-                  title: "Cancel Subscription",
+                  title: "Cancel",
                   description: "Are you sure you want to cancel your subscription?",
                   plan: currentPlan.plan,
                   warningTitle: "You will lose access to premium features",
