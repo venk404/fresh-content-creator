@@ -24,12 +24,10 @@ CORS(app)  #
 @app.route("/products", methods=["GET"])
 def get_products():
     try:
-        # Fetch product list (paginated)
         page = client.products.list()
 
-        # Loop all items and convert to dict
-        
-        products = [p.model_dump() for p in page.items]
+        # FIXED: use JSON mode to avoid serializer warnings
+        products = [p.model_dump(mode="json") for p in page.items]
 
         return jsonify({"items": products})
 
@@ -231,27 +229,29 @@ def getallpayments_route():
 @app.route("/getsubscription", methods=["GET"])
 def getsubscription():
     try:
-
         email = request.args.get("email")
 
         if not email:
             return jsonify({"success": False, "error": "Missing email"}), 400
         
         subscription = get_subscription(email)
-
+        print("DEBUG: fetched subscription from DB:", subscription)
+        
+        # Wrap single subscription in array for frontend compatibility
+        subscriptions = [subscription] if subscription else []
+        
         return jsonify({
             "success": True,
-            "subscriptions": subscription
+            "subscriptions": subscriptions
         }), 200
 
     except Exception as e:
         print("ERROR LINE TRACE:")
         import traceback
-        traceback.print_exc()     # 🔥 EXACT LINE OF ERROR
+        traceback.print_exc()
 
         print("Error fetching Subscription:", e)
         return jsonify({"success": False, "error": str(e)}), 500
-
 
 
 
