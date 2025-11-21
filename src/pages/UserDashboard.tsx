@@ -123,11 +123,34 @@ useEffect(() => {
 
   const handlePlanUpdate = async (planId: string) => {
     try {
-      const res = await fetch("http://localhost:5000/updatesubscription", {
+      // Map selected planId (daily/weekly/monthly) to product_id from plans
+      const selected = plans.find((p) => p.id === planId);
+      if (!selected || !selected.product_id) {
+        alert("Selected plan not found");
+        return;
+      }
+
+      const product_id = selected.product_id;
+
+      // Decide upgrade vs downgrade based on simple tier order
+      const tierOrder: Record<string, number> = { daily: 1, weekly: 2, monthly: 3 };
+      const currentTier = currentPlan ? tierOrder[currentPlan.plan.id] ?? 0 : 0;
+      const newTier = tierOrder[planId] ?? 0;
+
+      const endpoint =
+        newTier >= currentTier
+          ? "http://localhost:5000/subscription/upgrade"
+          : "http://localhost:5000/subscription/downgrade";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user?.email, plan_id: planId }),
+        body: JSON.stringify({
+          email: user?.email?.toLowerCase(),
+          product_id,
+        }),
       });
+
       const data = await res.json();
       if (data.success) {
         alert("Subscription updated successfully!");
@@ -143,10 +166,13 @@ useEffect(() => {
 
   const handleCancelSubscription = async () => {
     try {
-      const res = await fetch("http://localhost:5000/cancelsubscription", {
+      const res = await fetch("http://localhost:5000/subscription/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user?.email }),
+        body: JSON.stringify({
+          email: user?.email?.toLowerCase(),
+          mode: "period_end", // default cancel at period end
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -219,6 +245,15 @@ useEffect(() => {
                   plans: plans,
                   onPlanChange: handlePlanUpdate,
                   triggerText: "Upgrade",
+                }}
+                updatePlanSecondary={{
+                  currentPlan: currentPlan.plan,
+                  plans: plans.filter((p) => {
+                    const order: Record<string, number> = { daily: 1, weekly: 2, monthly: 3 };
+                    return (order[p.id] ?? 0) < (order[currentPlan.plan.id] ?? 0);
+                  }),
+                  onPlanChange: handlePlanUpdate,
+                  triggerText: "Downgrade",
                 }}
                 cancelSubscription={{
                   title: "Cancel",

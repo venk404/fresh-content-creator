@@ -5,13 +5,16 @@ from flask_cors import CORS
 from dodopayments import DodoPayments
 import psycopg2
 from dotenv import load_dotenv
-from db import insert_payment, get_db , db_get_all_users,get_all_user_purchases,db_get_all_payments,insert_Subscriptions,get_subscription
-import os
+from db import get_db, db_get_all_users, get_all_user_purchases, db_get_all_payments, get_subscription
 import time
 
+# Load environment variables
+load_dotenv()
 
 DODO_API_URL = "https://test.dodopayments.com/products"
-DODO_API_KEY = os.getenv("VITE_DODO_API_KEY")
+# Prefer server-side key; fall back to Vite key if present
+DODO_API_KEY = os.getenv("DODO_API_KEY") or os.getenv("VITE_DODO_API_KEY")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:8081")
 
 client = DodoPayments(
     bearer_token=DODO_API_KEY,
@@ -43,9 +46,18 @@ def create_checkout():
     try:
         data = request.get_json()   # Read JSON body
         product_id = data.get("product_id")
-
+        email = data.get("email")  # optional - attach known customer
         if not product_id:
             return jsonify({"error": "product_id is required"}), 400
+
+        # Normalize email to lowercase (Dodo sends customer_email in lowercase)
+        customer_block = None
+        if email:
+            email = (email or "").strip().lower()
+            # Per docs: provide a new_customer with email to ensure session is linked
+            customer_block = {
+                "email": email
+            }
 
         # Create checkout session using the SDK
         checkout_session = client.checkout_sessions.create(
@@ -55,9 +67,13 @@ def create_checkout():
                     "quantity": 1,
                 }
             ],
+            customer=customer_block if customer_block else None,
+            show_saved_payment_methods=True,  # show saved PMs for returning customers
             feature_flags={
                 "allow_discount_code": True
-            },return_url="http://localhost:8081/dashboard",)
+            },
+            return_url=f"{FRONTEND_BASE_URL}/dashboard",
+        )
 
         return jsonify({
             "session_id": checkout_session.session_id,
@@ -72,7 +88,7 @@ def create_checkout():
 def signup():
     try:
         data = request.get_json()
-        email = data.get("email")
+        email = (data.get("email") or "").strip().lower()
         password = data.get("password")
 
         if not email or not password:
@@ -109,7 +125,7 @@ def signup():
 def signin():
     try:
         data = request.get_json()
-        email = data.get("email")
+        email = (data.get("email") or "").strip().lower()
         password = data.get("password")
 
         conn = get_db()
@@ -150,6 +166,8 @@ def get_all_purchases_route():
         if not email:
             return jsonify({"success": False, "error": "Missing email"}), 400
 
+        # Normalize email to lowercase to match stored customer_email casing
+        email = (email or "").strip().lower()
         purchases = get_all_user_purchases(email)
 
         return jsonify({"success": True, "purchases": purchases}), 200
@@ -238,6 +256,8 @@ def getsubscription():
         if not email:
             return jsonify({"success": False, "error": "Missing email"}), 400
         
+        # Normalize before lookup (DB stores/compares lowercase)
+        email = (email or "").strip().lower()
         subscription = get_subscription(email)
         
         # Wrap single subscription in array for frontend compatibility
@@ -267,13 +287,167 @@ def get_payment_method():
 
         for item in response.items:
             if item.payment_method_id==payment_method_id:
-                print(item.payment_method)
                 return jsonify({"payment_methods": item.payment_method}), 200
         return jsonify({"error": "Payment method not found"}), 404
 
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/updatesubscription", methods=["POST"])
+def update_subscription_plan():
+    """
+    Change plan for the user's active subscription using DodoPayments SDK
+    with proration mode 'prorated_immediately'.
+    Body: { "email": "user@example.com", "product_id": "prod_..." }
+    """
+    try:
+        data = request.get_json() or {}
+        email = (data.get("email") or "").strip().lower()
+        product_id = data.get("product_id")
+
+        if not email or not product_id:
+            return jsonify({"success": False, "error": "email and product_id are required"}), 400
+
+        # Retrieve current active subscription for this user from DB
+        sub = get_subscription(email)
+        if not sub or not sub.get("subscription_id"):
+            return jsonify({"success": False, "error": "No active subscription found"}), 404
+
+        subscription_id = sub["subscription_id"]
+
+        # Call DodoPayments Python SDK
+        # Docs via Context7 (validated): POST /subscriptions/{subscription_id}/change-plan
+        # Params: product_id, proration_billing_mode, quantity, addons (optional)
+        client.subscriptions.change_plan(
+            subscription_id=subscription_id,
+            product_id=product_id,
+            proration_billing_mode="prorated_immediately",
+            quantity=1,
+            addons=[]
+        )
+
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print("Error updating subscription plan:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/subscription/upgrade", methods=["POST"])
+def upgrade_subscription():
+    """
+    Explicit Upgrade endpoint.
+    Body: { "email": "user@example.com", "product_id": "prod_new" }
+    Effect: change_plan(prorated_immediately)
+    """
+    try:
+        data = request.get_json() or {}
+        email = (data.get("email") or "").strip().lower()
+        product_id = data.get("product_id")
+
+        if not email or not product_id:
+            return jsonify({"success": False, "error": "email and product_id are required"}), 400
+
+        sub = get_subscription(email)
+        if not sub or not sub.get("subscription_id"):
+            return jsonify({"success": False, "error": "No active subscription found"}), 404
+
+        client.subscriptions.change_plan(
+            subscription_id=sub["subscription_id"],
+            product_id=product_id,
+            proration_billing_mode="prorated_immediately",
+            quantity=1,
+            addons=[]
+        )
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print("Error upgrading subscription:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/subscription/downgrade", methods=["POST"])
+def downgrade_subscription():
+    """
+    Explicit Downgrade endpoint.
+    Body: { "email": "user@example.com", "product_id": "prod_new" }
+    Effect: change_plan(prorated_immediately)
+    """
+    try:
+        data = request.get_json() or {}
+        email = (data.get("email") or "").strip().lower()
+        product_id = data.get("product_id")
+
+        if not email or not product_id:
+            return jsonify({"success": False, "error": "email and product_id are required"}), 400
+
+        sub = get_subscription(email)
+        if not sub or not sub.get("subscription_id"):
+            return jsonify({"success": False, "error": "No active subscription found"}), 404
+
+        client.subscriptions.change_plan(
+            subscription_id=sub["subscription_id"],
+            product_id=product_id,
+            proration_billing_mode="prorated_immediately",
+            quantity=1,
+            addons=[]
+        )
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print("Error downgrading subscription:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/subscription/cancel", methods=["POST"])
+def cancel_subscription():
+    """
+    Cancel subscription for user (Dodo + local DB).
+    Body: { "email": "user@example.com", "mode": "period_end" | "immediately" }
+    Default mode = "period_end"
+    """
+    try:
+        data = request.get_json() or {}
+        email = (data.get("email") or "").strip().lower()
+        mode = (data.get("mode") or "period_end").strip().lower()
+
+        if not email:
+            return jsonify({"success": False, "error": "email is required"}), 400
+
+        sub = get_subscription(email)
+        if not sub or not sub.get("subscription_id"):
+            return jsonify({"success": False, "error": "No active subscription found"}), 404
+
+        subscription_id = sub["subscription_id"]
+
+        # First cancel in Dodo Payments using official update endpoint
+
+        if mode == "immediately":
+            client.subscriptions.update(
+                subscription_id=subscription_id,
+                status="cancelled"
+            )
+        else:
+            client.subscriptions.update(
+                subscription_id=subscription_id,
+                cancel_at_next_billing_date=True
+            )
+
+        # Then update local DB to reflect the chosen mode
+        #cancel_subscription_db(subscription_id, mode)
+
+        # Return minimal info; webhook will finalize authoritative state
+        return jsonify({
+            "success": True,
+            "subscription_id": subscription_id,
+            "mode": mode
+        }), 200
+
+    except Exception as e:
+        print("Error cancelling subscription:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":

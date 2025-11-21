@@ -48,7 +48,6 @@ def get_all_user_purchases(email):
 
     cursor.execute(query, (email,))
     rows = cursor.fetchall()
-
     cursor.close()
     conn.close()
 
@@ -572,6 +571,7 @@ def upsert_subscription_enforced(data: dict) -> bool:
         import traceback
         traceback.print_exc()
         return False
+    
 def get_subscription(email):
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -580,11 +580,14 @@ def get_subscription(email):
         cursor.execute("""
             SELECT *
             FROM subscriptions
-            WHERE customer_email = %s and status = 'active'
-            LIMIT 1 ;
+            WHERE LOWER(customer_email) = LOWER(%s)
+            AND status = 'active'
+            LIMIT 1;
         """, (email,))
-        
+
+                        
         row = cursor.fetchone()
+        print(row)
         return row
 
     except Exception as e:

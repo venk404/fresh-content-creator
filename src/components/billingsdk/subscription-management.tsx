@@ -29,6 +29,8 @@ interface SubscriptionManagementProps {
   className?: string;
   currentPlan: CurrentPlan;
   updatePlan: UpdatePlanProps;
+  // Optional secondary action (e.g., Downgrade) with its own trigger and handler
+  updatePlanSecondary?: UpdatePlanProps;
   cancelSubscription: CancelSubscriptionProps;
 }
 
@@ -36,10 +38,12 @@ export function SubscriptionManagement({
   className,
   currentPlan,
   updatePlan,
+  updatePlanSecondary,
   cancelSubscription,
 }: SubscriptionManagementProps) {
   const [selectedPlanId, setSelectedPlanId] = useState(currentPlan.plan.id);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+  const [isUpdateSecondaryOpen, setIsUpdateSecondaryOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -47,6 +51,14 @@ export function SubscriptionManagement({
     if (selectedPlanId !== currentPlan.plan.id) {
       updatePlan.onPlanChange(selectedPlanId);
       setIsUpdateOpen(false);
+    }
+  };
+
+  const handleUpdateSecondaryPlan = () => {
+    if (!updatePlanSecondary) return;
+    if (selectedPlanId !== currentPlan.plan.id) {
+      updatePlanSecondary.onPlanChange(selectedPlanId);
+      setIsUpdateSecondaryOpen(false);
     }
   };
 
@@ -123,7 +135,7 @@ export function SubscriptionManagement({
 
         {/* ACTION BUTTONS */}
         <div className="flex gap-3 pt-4">
-          {/* -------- UPDATE PLAN DIALOG -------- */}
+          {/* -------- UPGRADE DIALOG -------- */}
           <Dialog
             open={isUpdateOpen}
             onOpenChange={(open) => {
@@ -181,15 +193,15 @@ export function SubscriptionManagement({
               </div>
 
               <DialogFooter>
-             <Button
-                variant="outline"
-                onClick={() => {
-                  setIsUpdateOpen(false);
-                  setSelectedPlanId(currentPlan.plan.id);
-                }}
-              >
-                Cancel
-              </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsUpdateOpen(false);
+                    setSelectedPlanId(currentPlan.plan.id);
+                  }}
+                >
+                  Cancel
+                </Button>
                 <Button
                   onClick={handleUpdatePlan}
                   disabled={selectedPlanId === currentPlan.plan.id}
@@ -199,6 +211,85 @@ export function SubscriptionManagement({
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* -------- DOWNGRADE DIALOG (optional) -------- */}
+          {updatePlanSecondary && (
+            <Dialog
+              open={isUpdateSecondaryOpen}
+              onOpenChange={(open) => {
+                setIsUpdateSecondaryOpen(open);
+                if (!open) {
+                  setSelectedPlanId(currentPlan.plan.id);
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button variant="secondary" className="flex-1">
+                  {updatePlanSecondary.triggerText}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Downgrade Your Plan</DialogTitle>
+                  <DialogDescription>
+                    Select a lower-tier plan
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+                  {updatePlanSecondary.plans.map((plan) => (
+                    <button
+                      key={plan.id}
+                      onClick={() => setSelectedPlanId(plan.id)}
+                      className={cn(
+                        "relative p-4 rounded-lg border-2 text-left transition-all hover:border-primary/50",
+                        selectedPlanId === plan.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-card"
+                      )}
+                    >
+                      {selectedPlanId === plan.id && (
+                        <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                      )}
+                      <h4 className="font-semibold mb-1">{plan.title}</h4>
+                      <p className="text-2xl font-bold text-primary mb-2">
+                        {currentPlan.type === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-3">{plan.description}</p>
+                      <div className="space-y-1">
+                        {plan.features.slice(0, 3).map((feature, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-xs">
+                            <Check className="h-3 w-3 text-primary" />
+                            <span>{feature.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsUpdateSecondaryOpen(false);
+                      setSelectedPlanId(currentPlan.plan.id);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUpdateSecondaryPlan}
+                    disabled={selectedPlanId === currentPlan.plan.id}
+                  >
+                    Confirm Downgrade
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
 
           {/* -------- CANCEL DIALOG -------- */}
           <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
