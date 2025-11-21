@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 import json
 from dotenv import load_dotenv
 import os
-from db import insert_payment, get_db ,insert_Subscriptions
+from db import insert_payment, get_db, upsert_subscription_enforced
 
 
 app = Flask(__name__)
@@ -11,7 +11,9 @@ app = Flask(__name__)
 
 load_dotenv()
 
-webhook_secret_key = os.getenv("dodopayment_webhook_secret")
+webhook_secret_key = os.getenv("DODO_PAYMENTS_WEBHOOK_SECRET") or os.getenv("dodopayment_webhook_secret")
+if not webhook_secret_key:
+    raise ValueError("Missing DODO_PAYMENTS_WEBHOOK_SECRET (or dodopayment_webhook_secret) in environment")
 wh = Webhook(webhook_secret_key)
 
 @app.route('/webhook/dodo-payments', methods=['POST'])
@@ -47,21 +49,23 @@ def dodo_payments_webhook():
                 insert_payment(payload=data)
                 print(f"Payment cancelled: {event_data.get('payment_id')}")
             case 'subscription.active':
-                insert_Subscriptions(event_data)
+                upsert_subscription_enforced(event_data)
                 print(f"Subscription active: {event_data.get('subscription_id')}")
             case 'subscription.on_hold':
-                insert_Subscriptions(event_data)
+                upsert_subscription_enforced(event_data)
                 print(f"Subscription on hold: {event_data.get('subscription_id')}")
             case 'subscription.renewed':
-                insert_Subscriptions(event_data)
+                upsert_subscription_enforced(event_data)
                 print(f"Subscription renewed: {event_data.get('subscription_id')}")
             case 'subscription.plan_changed':
-                insert_Subscriptions(event_data)
+                upsert_subscription_enforced(event_data)
                 print(f"Subscription plan changed: {event_data.get('subscription_id')}")
             case 'subscription.cancelled':
-                insert_Subscriptions(event_data)
+                upsert_subscription_enforced(event_data)
                 print(f"Subscription cancelled: {event_data.get('subscription_id')}")
             case 'subscription.failed':
+                # optionally record a failed state
+                upsert_subscription_enforced(event_data)
                 print(f"Subscription failed: {event_data.get('subscription_id')}")
             case _:
                 print(f"Unhandled event type: ({event_type}): {event_data}")

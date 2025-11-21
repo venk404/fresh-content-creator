@@ -15,7 +15,7 @@ interface CourseCardProps {
   duration: string;
   students: string;
   type: string;                                      // <-- ADDED
-  onEnroll: (product_id: string) => void;
+  onEnroll: (product_id: string, type: string) => void;
 }
 
 const CourseCard = ({
@@ -100,7 +100,7 @@ const CourseCard = ({
           {/* Button changes ONLY based on type */}
           <Button
             variant="default"
-            onClick={() => onEnroll(product_id)}
+            onClick={() => onEnroll(product_id, type)}
           >
             {getButtonText()}
           </Button>

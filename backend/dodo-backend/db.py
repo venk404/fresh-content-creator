@@ -362,6 +362,216 @@ def insert_Subscriptions(data):
 
 
 
+def subscription_exists(subscription_id: str) -> bool:
+    """
+    Check existence of a subscription by subscription_id regardless of status.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT 1 FROM subscriptions WHERE subscription_id = %s LIMIT 1;",
+            (subscription_id,),
+        )
+        return cursor.fetchone() is not None
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def upsert_subscription_enforced(data: dict) -> bool:
+    """
+    Upsert a subscription row and enforce only one active subscription per customer_email.
+    - If the subscription exists, update it.
+    - If it doesn't exist, insert it.
+    - If resulting status is 'active', cancel any other active subscriptions for the same customer_email.
+    """
+    try:
+        # Normalize params similar to insert_Subscriptions
+        metadata = json.dumps(data.get("metadata", {}))
+        billing = data.get("billing", {}) or {}
+        customer = data.get("customer", {}) or {}
+
+        params = {
+            "subscription_id": data.get("subscription_id"),
+            "product_id": data.get("product_id"),
+            "status": data.get("status"),
+            "created_at": data.get("created_at"),
+            "next_billing_date": data.get("next_billing_date"),
+            "billing_city": billing.get("city"),
+            "billing_country": billing.get("country"),
+            "billing_state": billing.get("state"),
+            "billing_street": billing.get("street"),
+            "billing_zipcode": billing.get("zipcode"),
+            "cancel_at_next_billing_date": data.get("cancel_at_next_billing_date"),
+            "cancelled_at": data.get("cancelled_at"),
+            "currency": data.get("currency"),
+            "customer_id": customer.get("customer_id"),
+            "customer_email": customer.get("email"),
+            "customer_name": customer.get("name"),
+            "customer_phone_number": customer.get("phone_number"),
+            "customer_metadata": json.dumps(customer.get("metadata", {})),
+            "discount_cycles_remaining": data.get("discount_cycles_remaining"),
+            "discount_id": data.get("discount_id"),
+            "metadata": metadata,
+            "previous_billing_date": data.get("previous_billing_date"),
+            "on_demand": data.get("on_demand"),
+            "payment_frequency_count": data.get("payment_frequency_count"),
+            "payment_frequency_interval": data.get("payment_frequency_interval"),
+            "payment_method_id": data.get("payment_method_id"),
+            "quantity": data.get("quantity"),
+            "recurring_pre_tax_amount": data.get("recurring_pre_tax_amount"),
+            "subscription_period_count": data.get("subscription_period_count"),
+            "subscription_period_interval": data.get("subscription_period_interval"),
+            "tax_id": data.get("tax_id"),
+            "tax_inclusive": data.get("tax_inclusive"),
+            "trial_period_days": data.get("trial_period_days"),
+        }
+
+        conn = get_db()
+        with conn:
+            with conn.cursor() as cursor:
+                # Decide insert vs update
+                if subscription_exists(params["subscription_id"]):
+                    # Update existing record
+                    update_sql = """
+                        UPDATE subscriptions
+                        SET
+                            product_id = %(product_id)s,
+                            status = %(status)s,
+                            start_date = %(created_at)s,
+                            end_date = %(next_billing_date)s,
+                            billing_city = %(billing_city)s,
+                            billing_country = %(billing_country)s,
+                            billing_state = %(billing_state)s,
+                            billing_street = %(billing_street)s,
+                            billing_zipcode = %(billing_zipcode)s,
+                            cancel_at_next_billing_date = %(cancel_at_next_billing_date)s,
+                            cancelled_at = %(cancelled_at)s,
+                            currency = %(currency)s,
+                            customer_id = %(customer_id)s,
+                            customer_email = %(customer_email)s,
+                            customer_name = %(customer_name)s,
+                            customer_phone_number = %(customer_phone_number)s,
+                            customer_metadata = %(customer_metadata)s,
+                            discount_cycles_remaining = %(discount_cycles_remaining)s,
+                            discount_id = %(discount_id)s,
+                            metadata = %(metadata)s,
+                            next_billing_date = %(next_billing_date)s,
+                            previous_billing_date = %(previous_billing_date)s,
+                            on_demand = %(on_demand)s,
+                            payment_frequency_count = %(payment_frequency_count)s,
+                            payment_frequency_interval = %(payment_frequency_interval)s,
+                            payment_method_id = %(payment_method_id)s,
+                            quantity = %(quantity)s,
+                            recurring_pre_tax_amount = %(recurring_pre_tax_amount)s,
+                            subscription_period_count = %(subscription_period_count)s,
+                            subscription_period_interval = %(subscription_period_interval)s,
+                            tax_id = %(tax_id)s,
+                            tax_inclusive = %(tax_inclusive)s,
+                            trial_period_days = %(trial_period_days)s
+                        WHERE subscription_id = %(subscription_id)s;
+                    """
+                    cursor.execute(update_sql, params)
+                else:
+                    # Insert new record
+                    insert_sql = """
+                        INSERT INTO subscriptions(
+                            subscription_id,
+                            product_id,
+                            status,
+                            start_date,
+                            end_date,
+                            billing_city,
+                            billing_country,
+                            billing_state,
+                            billing_street,
+                            billing_zipcode,
+                            cancel_at_next_billing_date,
+                            cancelled_at,
+                            currency,
+                            customer_id,
+                            customer_email,
+                            customer_name,
+                            customer_phone_number,
+                            customer_metadata,
+                            discount_cycles_remaining,
+                            discount_id,
+                            metadata,
+                            next_billing_date,
+                            previous_billing_date,
+                            on_demand,
+                            payment_frequency_count,
+                            payment_frequency_interval,
+                            payment_method_id,
+                            quantity,
+                            recurring_pre_tax_amount,
+                            subscription_period_count,
+                            subscription_period_interval,
+                            tax_id,
+                            tax_inclusive,
+                            trial_period_days
+                        )
+                        VALUES (
+                            %(subscription_id)s,
+                            %(product_id)s,
+                            %(status)s,
+                            %(created_at)s,
+                            %(next_billing_date)s,
+                            %(billing_city)s,
+                            %(billing_country)s,
+                            %(billing_state)s,
+                            %(billing_street)s,
+                            %(billing_zipcode)s,
+                            %(cancel_at_next_billing_date)s,
+                            %(cancelled_at)s,
+                            %(currency)s,
+                            %(customer_id)s,
+                            %(customer_email)s,
+                            %(customer_name)s,
+                            %(customer_phone_number)s,
+                            %(customer_metadata)s,
+                            %(discount_cycles_remaining)s,
+                            %(discount_id)s,
+                            %(metadata)s,
+                            %(next_billing_date)s,
+                            %(previous_billing_date)s,
+                            %(on_demand)s,
+                            %(payment_frequency_count)s,
+                            %(payment_frequency_interval)s,
+                            %(payment_method_id)s,
+                            %(quantity)s,
+                            %(recurring_pre_tax_amount)s,
+                            %(subscription_period_count)s,
+                            %(subscription_period_interval)s,
+                            %(tax_id)s,
+                            %(tax_inclusive)s,
+                            %(trial_period_days)s
+                        );
+                    """
+                    cursor.execute(insert_sql, params)
+
+                # Enforce single active subscription per customer_email
+                if params.get("status") == "active" and params.get("customer_email"):
+                    cursor.execute(
+                        """
+                        UPDATE subscriptions
+                        SET status = 'cancelled',
+                            cancelled_at = COALESCE(cancelled_at, NOW())
+                        WHERE customer_email = %s
+                          AND subscription_id <> %s
+                          AND status = 'active';
+                        """,
+                        (params["customer_email"], params["subscription_id"]),
+                    )
+
+        return True
+
+    except Exception as e:
+        print("Upsert/Enforcement error:", e)
+        import traceback
+        traceback.print_exc()
+        return False
 def get_subscription(email):
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
