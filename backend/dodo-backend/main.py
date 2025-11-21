@@ -320,10 +320,11 @@ def update_subscription_plan():
         # Call DodoPayments Python SDK
         # Docs via Context7 (validated): POST /subscriptions/{subscription_id}/change-plan
         # Params: product_id, proration_billing_mode, quantity, addons (optional)
+        proration_mode = (data.get("proration_billing_mode") or "prorated_immediately").strip()
         client.subscriptions.change_plan(
             subscription_id=subscription_id,
             product_id=product_id,
-            proration_billing_mode="prorated_immediately",
+            proration_billing_mode=proration_mode,
             quantity=1,
             addons=[]
         )
@@ -354,10 +355,11 @@ def upgrade_subscription():
         if not sub or not sub.get("subscription_id"):
             return jsonify({"success": False, "error": "No active subscription found"}), 404
 
+        proration_mode = (data.get("proration_billing_mode") or "prorated_immediately").strip()
         client.subscriptions.change_plan(
             subscription_id=sub["subscription_id"],
             product_id=product_id,
-            proration_billing_mode="prorated_immediately",
+            proration_billing_mode=proration_mode,
             quantity=1,
             addons=[]
         )
@@ -387,10 +389,11 @@ def downgrade_subscription():
         if not sub or not sub.get("subscription_id"):
             return jsonify({"success": False, "error": "No active subscription found"}), 404
 
+        proration_mode = (data.get("proration_billing_mode") or "prorated_immediately").strip()
         client.subscriptions.change_plan(
             subscription_id=sub["subscription_id"],
             product_id=product_id,
-            proration_billing_mode="prorated_immediately",
+            proration_billing_mode=proration_mode,
             quantity=1,
             addons=[]
         )

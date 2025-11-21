@@ -8,10 +8,13 @@ import { Check, Calendar, CreditCard, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CurrentPlan, Plan } from "@/lib/billingsdk-config";
 
+type ProrationMode = "prorated_immediately" | "full_immediately" | "difference_immediately";
+type CancelMode = "period_end" | "immediately";
+
 interface UpdatePlanProps {
   currentPlan: Plan;
   plans: Plan[];
-  onPlanChange: (planId: string) => void;
+  onPlanChange: (planId: string, prorationMode: ProrationMode) => void;
   triggerText: string;
 }
 
@@ -21,7 +24,7 @@ interface CancelSubscriptionProps {
   plan: Plan;
   warningTitle: string;
   warningText: string;
-  onCancel: (planId: string) => Promise<void>;
+  onCancel: (mode: CancelMode) => Promise<void>;
   onKeepSubscription: (planId: string) => void;
 }
 
@@ -44,28 +47,49 @@ export function SubscriptionManagement({
   const [selectedPlanId, setSelectedPlanId] = useState(currentPlan.plan.id);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isUpdateSecondaryOpen, setIsUpdateSecondaryOpen] = useState(false);
+
+  // Proration mode flow (shared for upgrade/downgrade)
+  const [isProrationOpen, setIsProrationOpen] = useState(false);
+  const [prorationMode, setProrationMode] = useState<ProrationMode>("prorated_immediately");
+  const [triggeredFromSecondary, setTriggeredFromSecondary] = useState(false);
+
+  // Cancel flow
   const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [cancelMode, setCancelMode] = useState<CancelMode>("period_end");
   const [isCancelling, setIsCancelling] = useState(false);
 
   const handleUpdatePlan = () => {
     if (selectedPlanId !== currentPlan.plan.id) {
-      updatePlan.onPlanChange(selectedPlanId);
+      setTriggeredFromSecondary(false);
       setIsUpdateOpen(false);
+      setProrationMode("prorated_immediately");
+      setIsProrationOpen(true);
     }
   };
 
   const handleUpdateSecondaryPlan = () => {
     if (!updatePlanSecondary) return;
     if (selectedPlanId !== currentPlan.plan.id) {
-      updatePlanSecondary.onPlanChange(selectedPlanId);
+      setTriggeredFromSecondary(true);
       setIsUpdateSecondaryOpen(false);
+      setProrationMode("prorated_immediately");
+      setIsProrationOpen(true);
     }
+  };
+
+  const handleConfirmProration = () => {
+    if (triggeredFromSecondary && updatePlanSecondary) {
+      updatePlanSecondary.onPlanChange(selectedPlanId, prorationMode);
+    } else {
+      updatePlan.onPlanChange(selectedPlanId, prorationMode);
+    }
+    setIsProrationOpen(false);
   };
 
   const handleCancelSubscription = async () => {
     setIsCancelling(true);
     try {
-      await cancelSubscription.onCancel(currentPlan.plan.id);
+      await cancelSubscription.onCancel(cancelMode);
       setIsCancelOpen(false);
     } catch (error) {
       console.error("Error cancelling subscription:", error);
@@ -206,7 +230,7 @@ export function SubscriptionManagement({
                   onClick={handleUpdatePlan}
                   disabled={selectedPlanId === currentPlan.plan.id}
                 >
-                  Confirm Upgrade
+                  Next: Proration
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -237,37 +261,43 @@ export function SubscriptionManagement({
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-                  {updatePlanSecondary.plans.map((plan) => (
-                    <button
-                      key={plan.id}
-                      onClick={() => setSelectedPlanId(plan.id)}
-                      className={cn(
-                        "relative p-4 rounded-lg border-2 text-left transition-all hover:border-primary/50",
-                        selectedPlanId === plan.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border bg-card"
-                      )}
-                    >
-                      {selectedPlanId === plan.id && (
-                        <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="h-4 w-4 text-primary-foreground" />
-                        </div>
-                      )}
-                      <h4 className="font-semibold mb-1">{plan.title}</h4>
-                      <p className="text-2xl font-bold text-primary mb-2">
-                        {currentPlan.type === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice}
-                      </p>
-                      <p className="text-xs text-muted-foreground mb-3">{plan.description}</p>
-                      <div className="space-y-1">
-                        {plan.features.slice(0, 3).map((feature, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-xs">
-                            <Check className="h-3 w-3 text-primary" />
-                            <span>{feature.name}</span>
+                  {updatePlanSecondary.plans.length === 0 ? (
+                    <div className="col-span-3 text-sm text-muted-foreground p-4 border border-border rounded">
+                      No lower-tier plans available to downgrade.
+                    </div>
+                  ) : (
+                    updatePlanSecondary.plans.map((plan) => (
+                      <button
+                        key={plan.id}
+                        onClick={() => setSelectedPlanId(plan.id)}
+                        className={cn(
+                          "relative p-4 rounded-lg border-2 text-left transition-all hover:border-primary/50",
+                          selectedPlanId === plan.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border bg-card"
+                        )}
+                      >
+                        {selectedPlanId === plan.id && (
+                          <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-4 w-4 text-primary-foreground" />
                           </div>
-                        ))}
-                      </div>
-                    </button>
-                  ))}
+                        )}
+                        <h4 className="font-semibold mb-1">{plan.title}</h4>
+                        <p className="text-2xl font-bold text-primary mb-2">
+                          {currentPlan.type === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice}
+                        </p>
+                        <p className="text-xs text-muted-foreground mb-3">{plan.description}</p>
+                        <div className="space-y-1">
+                          {plan.features.slice(0, 3).map((feature, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs">
+                              <Check className="h-3 w-3 text-primary" />
+                              <span>{feature.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
 
                 <DialogFooter>
@@ -282,14 +312,72 @@ export function SubscriptionManagement({
                   </Button>
                   <Button
                     onClick={handleUpdateSecondaryPlan}
-                    disabled={selectedPlanId === currentPlan.plan.id}
+                    disabled={
+                      selectedPlanId === currentPlan.plan.id ||
+                      (updatePlanSecondary?.plans?.length ?? 0) === 0
+                    }
                   >
-                    Confirm Downgrade
+                    Next: Proration
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           )}
+
+          {/* -------- PRORATION MODE DIALOG (shared by upgrade/downgrade) -------- */}
+          <Dialog open={isProrationOpen} onOpenChange={setIsProrationOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Select Proration Mode</DialogTitle>
+                <DialogDescription>
+                  Choose how to apply the price difference for this plan change.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 py-2">
+                <div className="text-sm">Current plan: <strong>{currentPlan.plan.title}</strong></div>
+                <div className="text-sm">New plan: <strong>{selectedPlanId}</strong></div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Proration Mode</p>
+                  <div className="grid gap-2">
+                    <button
+                      type="button"
+                      className={cn("border rounded p-2 text-left", prorationMode === "prorated_immediately" ? "border-primary" : "border-border")}
+                      onClick={() => setProrationMode("prorated_immediately")}
+                    >
+                      prorated_immediately (Recommended)
+                    </button>
+                    <button
+                      type="button"
+                      className={cn("border rounded p-2 text-left", prorationMode === "full_immediately" ? "border-primary" : "border-border")}
+                      onClick={() => setProrationMode("full_immediately")}
+                    >
+                      full_immediately
+                    </button>
+                    <button
+                      type="button"
+                      className={cn("border rounded p-2 text-left", prorationMode === "difference_immediately" ? "border-primary" : "border-border")}
+                      onClick={() => setProrationMode("difference_immediately")}
+                    >
+                      difference_immediately
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsProrationOpen(false)}
+                >
+                  Back
+                </Button>
+                <Button onClick={handleConfirmProration}>
+                  Confirm
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* -------- CANCEL DIALOG -------- */}
           <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
@@ -333,6 +421,26 @@ export function SubscriptionManagement({
                       </li>
                     ))}
                   </ul>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Cancellation Mode</p>
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    className={cn("border rounded p-2 text-left", cancelMode === "period_end" ? "border-primary" : "border-border")}
+                    onClick={() => setCancelMode("period_end")}
+                  >
+                    At end of current period (recommended)
+                  </button>
+                  <button
+                    type="button"
+                    className={cn("border rounded p-2 text-left", cancelMode === "immediately" ? "border-primary" : "border-border")}
+                    onClick={() => setCancelMode("immediately")}
+                  >
+                    Cancel immediately
+                  </button>
                 </div>
               </div>
 

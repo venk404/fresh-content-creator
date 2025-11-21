@@ -597,4 +597,3 @@ def get_subscription(email):
     finally:
         cursor.close()
         conn.close()
-

@@ -121,7 +121,7 @@ useEffect(() => {
   fetchData();
 }, [user]);
 
-  const handlePlanUpdate = async (planId: string) => {
+  const handlePlanUpdate = async (planId: string, prorationMode: "prorated_immediately" | "full_immediately" | "difference_immediately") => {
     try {
       // Map selected planId (daily/weekly/monthly) to product_id from plans
       const selected = plans.find((p) => p.id === planId);
@@ -148,6 +148,7 @@ useEffect(() => {
         body: JSON.stringify({
           email: user?.email?.toLowerCase(),
           product_id,
+          proration_billing_mode: prorationMode,
         }),
       });
 
@@ -164,19 +165,19 @@ useEffect(() => {
     }
   };
 
-  const handleCancelSubscription = async () => {
+  const handleCancelSubscription = async (mode: "period_end" | "immediately") => {
     try {
       const res = await fetch("http://localhost:5000/subscription/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user?.email?.toLowerCase(),
-          mode: "period_end", // default cancel at period end
+          mode,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        alert("Subscription cancelled successfully!");
+        alert("Subscription cancellation requested!");
         window.location.reload();
       } else {
         alert("Failed to cancel subscription: " + (data.error || "Unknown error"));
@@ -311,11 +312,37 @@ useEffect(() => {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground text-sm">Price Paid:</span>
+                        <span className="text-muted-foreground text-sm">Price Paid</span>
                         <span className="text-xl font-bold text-primary">
                           {purchase.currency} {purchase.amount}
                         </span>
                       </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground text-sm">Type</span>
+                        <span className="text-sm font-medium">
+                          {purchase.purchase_type === "subscription" ? "Subscription" : "One-time"}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground text-sm">Product</span>
+                        <span className="text-sm font-medium">
+                          {/* Prefer product_name if present, else show Dodo product ref */}
+                          {purchase.product_name
+                            ? purchase.product_name
+                            : purchase.dodo_product_id || "N/A"}
+                        </span>
+                      </div>
+
+                      {purchase.dodo_subscription_id ? (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground text-sm">Subscription ID</span>
+                          <span className="text-xs font-mono">
+                            {purchase.dodo_subscription_id}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   </CardContent>
                 </Card>
